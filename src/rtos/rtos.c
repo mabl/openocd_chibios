@@ -34,12 +34,14 @@ extern struct rtos_type FreeRTOS_rtos;
 extern struct rtos_type ThreadX_rtos;
 extern struct rtos_type eCos_rtos;
 extern struct rtos_type Linux_os;
+extern struct rtos_type ChibiOS_rtos;
 
 static struct rtos_type *rtos_types[] = {
 	&ThreadX_rtos,
 	&FreeRTOS_rtos,
 	&eCos_rtos,
 	&Linux_os,
+	&ChibiOS_rtos,
 	NULL
 };
 
@@ -138,6 +140,7 @@ int gdb_thread_packet(struct connection *connection, char *packet, int packet_si
  * symbol have been asked*/
 int rtos_qsymbol(struct connection *connection, char *packet, int packet_size)
 {
+	LOG_OUTPUT("--------------rtos_qsymbol()\r\n");
 	struct target *target = get_target_from_connection(connection);
 	if (target->rtos != NULL) {
 		int next_symbol_num = -1;
