@@ -145,18 +145,23 @@ static int ChibiOS_update_memory_signature(struct rtos *rtos) {
 								sizeof(struct ChibiOS_chroot),
 								(uint8_t *) param->ch_root);
 	if (retval != ERROR_OK) {
-		LOG_OUTPUT("Could not read ChibiOS Memory signature from target\r\n");
+		LOG_ERROR("Could not read ChibiOS Memory signature from target");
 		return retval;
 	}
 
 	if (strncmp(param->ch_root->ch_identifier, "CHRT", 4) != 0) {
-		LOG_OUTPUT("Memory signature identifier does not contain CHRT\r\n");
+		LOG_ERROR("Memory signature identifier does not contain CHRT");
 		return -1;
 	}
 
 	if (param->ch_root->ch_size < sizeof(struct ChibiOS_chroot)) {
-		LOG_OUTPUT("ChibiOS/RT memory signature claimed to be smaller than expected\r\n");
+		LOG_ERROR("ChibiOS/RT memory signature claimed to be smaller than expected");
 		return -2;
+	}
+
+	if (param->ch_root->ch_size > sizeof(struct ChibiOS_chroot)) {
+		LOG_WARNING("ChibiOS/RT memory signature claimed to be bigger than expected. "
+					"Assuming compatibility...");
 	}
 
 	/* Convert endianness of version string */
@@ -165,7 +170,7 @@ static int ChibiOS_update_memory_signature(struct rtos *rtos) {
 			le_to_h_u32(versionTarget) : be_to_h_u32(versionTarget);
 
 	const uint16_t ch_version = param->ch_root->ch_version;
-	LOG_INFO("Successfully loaded memory map of ChibiOS/RT running with version %i.%i.%i\r\n",
+	LOG_INFO("Successfully loaded memory map of ChibiOS/RT running with version %i.%i.%i",
 	           GET_CH_KERNEL_MAJOR(ch_version), GET_CH_KERNEL_MINOR(ch_version),
 	           GET_CH_KERNEL_PATCH(ch_version));
 
@@ -185,7 +190,7 @@ static int ChibiOS_update_threads(struct rtos *rtos)
 		return -1;
 
 	if (rtos->symbols == NULL) {
-		LOG_OUTPUT("No symbols for ChibiOS\r\n");
+		LOG_ERROR("No symbols for ChibiOS");
 		return -3;
 	}
 
@@ -195,7 +200,7 @@ static int ChibiOS_update_threads(struct rtos *rtos)
 	if (!param->ch_root) {
 		retval = ChibiOS_update_memory_signature(rtos);
 		if (retval != ERROR_OK) {
-			LOG_OUTPUT("Reading the memory signature of ChibiOS/RT failed\r\n");
+			LOG_ERROR("Reading the memory signature of ChibiOS/RT failed");
 			return retval;
 		}
 	}
@@ -234,7 +239,7 @@ static int ChibiOS_update_threads(struct rtos *rtos)
 		param->ch_root->ch_ptrsize,
 		(uint8_t *)&rlist);
 	if (retval != ERROR_OK) {
-		LOG_OUTPUT("Could not read ChibiOS ReadyList from target\r\n");
+		LOG_ERROR("Could not read ChibiOS ReadyList from target");
 		return retval;
 	}
 	
@@ -249,15 +254,15 @@ static int ChibiOS_update_threads(struct rtos *rtos)
 		  param->ch_root->ch_ptrsize,
 		  (uint8_t *)&current);
 		if (retval != ERROR_OK) {
-			LOG_OUTPUT("Could not read next ChibiOS thread\r\n");
+			LOG_ERROR("Could not read next ChibiOS thread");
 			return retval;
 		}
 		
 		// Current be NULL if the kernel is not initialized yet or if the
 		// registry is corrupted.
 		if(current == 0) {
-		  LOG_OUTPUT("ChibiOS registry integrity check failed, NULL pointer\r\n");
-		  return -4;
+			LOG_ERROR("ChibiOS registry integrity check failed, NULL pointer");
+			return -4;
 		}
 		
 		// Fetch previous thread in the list as a integrity check.
@@ -266,8 +271,8 @@ static int ChibiOS_update_threads(struct rtos *rtos)
 		  param->ch_root->ch_ptrsize,
 		  (uint8_t *)&older);
 		if((retval != ERROR_OK) || (older==0) || (older!=previous)) {
-			LOG_OUTPUT("ChibiOS registry integrity check failed, "
-						"double linked list violation\r\n");
+			LOG_ERROR("ChibiOS registry integrity check failed, "
+						"double linked list violation");
 		  return -5;
 		}
 		
@@ -303,7 +308,7 @@ static int ChibiOS_update_threads(struct rtos *rtos)
 		param->ch_root->ch_ptrsize,
 		(uint8_t *)&current);
 	  if (retval != ERROR_OK) {
-		LOG_OUTPUT("Could not read next ChibiOS thread\r\n");
+		  LOG_ERROR("Could not read next ChibiOS thread");
 		return -6;
 	  }
 	  
@@ -320,7 +325,7 @@ static int ChibiOS_update_threads(struct rtos *rtos)
 			  param->ch_root->ch_ptrsize,
 			  (uint8_t *)&name_ptr);
 	  if (retval != ERROR_OK) {
-		  LOG_OUTPUT("Could not read ChibiOS thread name pointer from target\r\n");
+		  LOG_ERROR("Could not read ChibiOS thread name pointer from target");
 		  return retval;
 	  }
 	  
@@ -331,7 +336,7 @@ static int ChibiOS_update_threads(struct rtos *rtos)
 			  CHIBIOS_THREAD_NAME_STR_SIZE,
 			  (uint8_t *)&tmp_str);
 	  if (retval != ERROR_OK) {
-		  LOG_OUTPUT("Error reading thread name from ChibiOS target\r\n");
+		  LOG_ERROR("Error reading thread name from ChibiOS target");
 		  return retval;
 	  }
 	  tmp_str[CHIBIOS_THREAD_NAME_STR_SIZE-1] = '\x00';
@@ -358,7 +363,7 @@ static int ChibiOS_update_threads(struct rtos *rtos)
 			  param->ch_root->ch_ptrsize,
 			  (uint8_t *)&rtos->current_thread);
 	if (retval != ERROR_OK) {
-		LOG_OUTPUT("Could not read current Thread from ChibiOS target\r\n");
+		LOG_ERROR("Could not read current Thread from ChibiOS target");
 		return retval;
 	}
 	
@@ -397,7 +402,7 @@ static int ChibiOS_get_thread_reg_list(struct rtos *rtos, int64_t thread_id, cha
 			param->ch_root->ch_ptrsize,
 			(uint8_t *)&stack_ptr);
 	if (retval != ERROR_OK) {
-		LOG_OUTPUT("Error reading stack frame from ChibiOS thread\r\n");
+		LOG_ERROR("Error reading stack frame from ChibiOS thread");
 		return retval;
 	}
 
@@ -485,7 +490,7 @@ static int ChibiOS_create(struct target *target)
 		i++;
 	}
 	if (i >= CHIBIOS_NUM_PARAMS) {
-		LOG_OUTPUT("Could not find target in ChibiOS compatibility list\r\n");
+		LOG_WARNING("Could not find target in ChibiOS compatibility list");
 		return -1;
 	}
 
