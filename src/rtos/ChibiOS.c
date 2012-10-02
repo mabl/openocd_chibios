@@ -174,7 +174,7 @@ static int ChibiOS_update_memory_signature(struct rtos *rtos) {
 			le_to_h_u32(versionTarget) : be_to_h_u32(versionTarget);
 
 	const uint16_t ch_version = param->ch_root->ch_version;
-	LOG_INFO("Successfully loaded memory map of ChibiOS/RT running with version %i.%i.%i",
+	LOG_INFO("Successfully loaded memory map of ChibiOS/RT target running version %i.%i.%i",
 		GET_CH_KERNEL_MAJOR(ch_version), GET_CH_KERNEL_MINOR(ch_version),
 		GET_CH_KERNEL_PATCH(ch_version));
 
@@ -351,7 +351,7 @@ static int ChibiOS_update_threads(struct rtos *rtos)
 		if (current == rlist)
 			break;
 
-		LOG_OUTPUT("Exporting ChibiOS task %i\r\n", i);
+		LOG_DEBUG("Exporting ChibiOS task %i\r\n", i);
 
 		/* Save the thread pointer */
 		rtos->thread_details[i].threadid = current;
@@ -401,7 +401,7 @@ static int ChibiOS_update_threads(struct rtos *rtos)
 		else
 			state_desc = "Unknown state";
 
-		LOG_OUTPUT("Thread in state %i (%s)\r\n", threadState, state_desc);
+		LOG_DEBUG("Thread in state %i (%s)\r\n", threadState, state_desc);
 
 		rtos->thread_details[i].extra_info_str = (char *)malloc(strlen(
 					state_desc)+1);
@@ -432,8 +432,6 @@ static int ChibiOS_update_threads(struct rtos *rtos)
 
 static int ChibiOS_get_thread_reg_list(struct rtos *rtos, int64_t thread_id, char **hex_reg_list)
 {
-	LOG_OUTPUT("-------ChibiOS_get_thread_reg_list()\r\n");
-  
 	int retval;
 	const struct ChibiOS_params *param;
 	int64_t stack_ptr = 0;
@@ -454,7 +452,6 @@ static int ChibiOS_get_thread_reg_list(struct rtos *rtos, int64_t thread_id, cha
 	if (param->ch_root == NULL)
 		return -1;
 
-
 	/* Read the stack pointer */
 	retval = target_read_buffer(rtos->target,
 			thread_id + param->ch_root->cf_off_ctx,
@@ -466,12 +463,10 @@ static int ChibiOS_get_thread_reg_list(struct rtos *rtos, int64_t thread_id, cha
 	}
 
 	return rtos_generic_stack_read(rtos->target, param->stacking_info, stack_ptr, hex_reg_list);
-
 }
 
 static int ChibiOS_get_symbol_list_to_lookup(symbol_table_elem_t *symbol_list[])
 {
-  	LOG_OUTPUT("-------ChibiOS_get_symbol_list_to_lookup()\r\n");
 	unsigned int i;
 	*symbol_list = (symbol_table_elem_t *) malloc(
 			sizeof(symbol_table_elem_t) * CHIBIOS_NUM_SYMBOLS);
@@ -481,53 +476,6 @@ static int ChibiOS_get_symbol_list_to_lookup(symbol_table_elem_t *symbol_list[])
 
 	return 0;
 }
-
-#if 0
-
-static int ChibiOS_set_current_thread(struct rtos *rtos, threadid_t thread_id)
-{
-	return 0;
-}
-
-static int ChibiOS_get_thread_ascii_info(struct rtos *rtos, threadid_t thread_id, char **info)
-{
-	int retval;
-	const struct ChibiOS_params *param;
-
-	if (rtos == NULL)
-		return -1;
-
-	if (thread_id == 0)
-		return -2;
-
-	if (rtos->rtos_specific_params == NULL)
-		return -3;
-
-	param = (const struct ChibiOS_params *) rtos->rtos_specific_params;
-
-#define CHIBIOS_THREAD_NAME_STR_SIZE (200)
-	char tmp_str[CHIBIOS_THREAD_NAME_STR_SIZE];
-
-	/* Read the thread name */
-	retval = target_read_buffer(rtos->target,
-			thread_id + param->thread_name_offset,
-			CHIBIOS_THREAD_NAME_STR_SIZE,
-			(uint8_t *)&tmp_str);
-	if (retval != ERROR_OK) {
-		LOG_OUTPUT("Error reading first thread item location in ChibiOS thread list\r\n");
-		return retval;
-	}
-	tmp_str[CHIBIOS_THREAD_NAME_STR_SIZE-1] = '\x00';
-
-	if (tmp_str[0] == '\x00')
-		strcpy(tmp_str, "No Name");
-
-	*info = (char *)malloc(strlen(tmp_str)+1);
-	strcpy(*info, tmp_str);
-	return 0;
-}
-
-#endif
 
 static int ChibiOS_detect_rtos(struct target *target)
 {
