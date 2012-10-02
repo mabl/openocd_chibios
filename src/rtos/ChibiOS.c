@@ -39,29 +39,29 @@
 /**
  * @brief   ChibiOS/RT memory signature record.
  *
- * @details Copied from os/kernel/include/chregistry.h of ChibiOS/RT.
+ * @details Definition copied from os/kernel/include/chregistry.h of ChibiOS/RT.
  */
 struct ChibiOS_chroot {
-  char      ch_identifier[4];       /**< @brief Always set to "CHRT".       */
-  uint8_t   ch_size;                /**< @brief Size of this structure.     */
-  uint8_t   ch_reserved5;           /**< @brief Reserved field.             */
-  uint16_t  ch_version;             /**< @brief Encoded ChibiOS/RT version. */
-  uint8_t   ch_ptrsize;             /**< @brief Size of a pointer.          */
-  uint8_t   ch_timesize;            /**< @brief Size of a @p systime_t.     */
-  uint8_t   ch_threadsize;          /**< @brief Size of a @p Thread struct. */
-  uint8_t   cf_off_prio;            /**< @brief Offset of @p p_prio field.  */
-  uint8_t   cf_off_ctx;             /**< @brief Offset of @p p_ctx field.   */
-  uint8_t   cf_off_newer;           /**< @brief Offset of @p p_newer field. */
-  uint8_t   cf_off_older;           /**< @brief Offset of @p p_older field. */
-  uint8_t   cf_off_name;            /**< @brief Offset of @p p_name field.  */
-  uint8_t   cf_off_stklimit;        /**< @brief Offset of @p p_stklimit
-                                                field.                      */
-  uint8_t   cf_off_state;           /**< @brief Offset of @p p_state field. */
-  uint8_t   cf_off_flags;           /**< @brief Offset of @p p_flags field. */
-  uint8_t   cf_off_refs;            /**< @brief Offset of @p p_refs field.  */
-  uint8_t   cf_off_preempt;         /**< @brief Offset of @p p_preempt
-                                                field.                      */
-  uint8_t   cf_off_time;            /**< @brief Offset of @p p_time field.  */
+	char      ch_identifier[4];       /**< @brief Always set to "CHRT".       */
+	uint8_t   ch_size;                /**< @brief Size of this structure.     */
+	uint8_t   ch_reserved5;           /**< @brief Reserved field.             */
+	uint16_t  ch_version;             /**< @brief Encoded ChibiOS/RT version. */
+	uint8_t   ch_ptrsize;             /**< @brief Size of a pointer.          */
+	uint8_t   ch_timesize;            /**< @brief Size of a @p systime_t.     */
+	uint8_t   ch_threadsize;          /**< @brief Size of a @p Thread struct. */
+	uint8_t   cf_off_prio;            /**< @brief Offset of @p p_prio field.  */
+	uint8_t   cf_off_ctx;             /**< @brief Offset of @p p_ctx field.   */
+	uint8_t   cf_off_newer;           /**< @brief Offset of @p p_newer field. */
+	uint8_t   cf_off_older;           /**< @brief Offset of @p p_older field. */
+	uint8_t   cf_off_name;            /**< @brief Offset of @p p_name field.  */
+	uint8_t   cf_off_stklimit;        /**< @brief Offset of @p p_stklimit
+												field.                      */
+	uint8_t   cf_off_state;           /**< @brief Offset of @p p_state field. */
+	uint8_t   cf_off_flags;           /**< @brief Offset of @p p_flags field. */
+	uint8_t   cf_off_refs;            /**< @brief Offset of @p p_refs field.  */
+	uint8_t   cf_off_preempt;         /**< @brief Offset of @p p_preempt
+												field.                      */
+	uint8_t   cf_off_time;            /**< @brief Offset of @p p_time field.  */
 };
 
 #define GET_CH_KERNEL_MAJOR(codedVersion) ((codedVersion >> 11) & 0x1f)
@@ -72,9 +72,9 @@ struct ChibiOS_chroot {
  * @brief ChibiOS thread states.
  */
 const char* ChibiOS_thread_states[] = {
-  "READY", "CURRENT", "SUSPENDED", "WTSEM", "WTMTX", "WTCOND", "SLEEPING",
-  "WTEXIT", "WTOREVT", "WTANDEVT", "SNDMSGQ", "SNDMSG", "WTMSG", "WTQUEUE",
-  "FINAL"
+	"READY", "CURRENT", "SUSPENDED", "WTSEM", "WTMTX", "WTCOND", "SLEEPING",
+	"WTEXIT", "WTOREVT", "WTANDEVT", "SNDMSGQ", "SNDMSG", "WTMSG", "WTQUEUE",
+	"FINAL"
 };
 
 #define CHIBIOS_NUM_STATES (sizeof(ChibiOS_thread_states)/sizeof(char *))
@@ -91,7 +91,7 @@ struct ChibiOS_params ChibiOS_params_list[] = {
 	{
 	"cortex_m3",							/* target_name */
 	0,
-	&rtos_standard_Cortex_M3_stacking,		/* stacking_info */
+	&rtos_chibios_Cortex_M3_stacking,		/* stacking_info */
 	}
 };
 #define CHIBIOS_NUM_PARAMS ((int)(sizeof(ChibiOS_params_list)/sizeof(struct ChibiOS_params)))
@@ -135,8 +135,10 @@ static int ChibiOS_update_memory_signature(struct rtos *rtos) {
 	param = (struct ChibiOS_params *) rtos->rtos_specific_params;
 
 	/* Free existing memory description.*/
-	if (param->ch_root)
+	if (param->ch_root) {
 		free(param->ch_root);
+		param->ch_root = 0;
+	}
 
 	param->ch_root = malloc(sizeof(struct ChibiOS_chroot));
 
@@ -146,17 +148,19 @@ static int ChibiOS_update_memory_signature(struct rtos *rtos) {
 								(uint8_t *) param->ch_root);
 	if (retval != ERROR_OK) {
 		LOG_ERROR("Could not read ChibiOS Memory signature from target");
-		return retval;
+		goto errfree;
 	}
 
 	if (strncmp(param->ch_root->ch_identifier, "CHRT", 4) != 0) {
 		LOG_ERROR("Memory signature identifier does not contain CHRT");
-		return -1;
+		retval = -1;
+		goto errfree;
 	}
 
 	if (param->ch_root->ch_size < sizeof(struct ChibiOS_chroot)) {
 		LOG_ERROR("ChibiOS/RT memory signature claimed to be smaller than expected");
-		return -2;
+		retval = -2;
+		goto errfree;
 	}
 
 	if (param->ch_root->ch_size > sizeof(struct ChibiOS_chroot)) {
@@ -171,10 +175,16 @@ static int ChibiOS_update_memory_signature(struct rtos *rtos) {
 
 	const uint16_t ch_version = param->ch_root->ch_version;
 	LOG_INFO("Successfully loaded memory map of ChibiOS/RT running with version %i.%i.%i",
-	           GET_CH_KERNEL_MAJOR(ch_version), GET_CH_KERNEL_MINOR(ch_version),
-	           GET_CH_KERNEL_PATCH(ch_version));
+		GET_CH_KERNEL_MAJOR(ch_version), GET_CH_KERNEL_MINOR(ch_version),
+		GET_CH_KERNEL_PATCH(ch_version));
 
 	return 0;
+
+errfree:
+	/* Error reading the ChibiOS memory structure */
+	free(param->ch_root);
+	param->ch_root = 0;
+	return retval;
 }
 
 static int ChibiOS_update_threads(struct rtos *rtos)
@@ -228,7 +238,6 @@ static int ChibiOS_update_threads(struct rtos *rtos)
 	
 	/* ChibiOS does not save the current thread count.
 	 * Parsing the double linked list to check for errors and number of threads. */
-	
 	uint32_t rlist;
 	uint32_t current;
 	uint32_t previous;
@@ -249,10 +258,10 @@ static int ChibiOS_update_threads(struct rtos *rtos)
 	while(true) {
 		LOG_OUTPUT("Investigating ChibiOS task %i\r\n", tasks_found);
 		
-	  	retval = target_read_buffer(rtos->target,
-		  current + param->ch_root->cf_off_newer,
-		  param->ch_root->ch_ptrsize,
-		  (uint8_t *)&current);
+		retval = target_read_buffer(rtos->target,
+			current + param->ch_root->cf_off_newer,
+			param->ch_root->ch_ptrsize,
+			(uint8_t *)&current);
 		if (retval != ERROR_OK) {
 			LOG_ERROR("Could not read next ChibiOS thread");
 			return retval;
@@ -273,12 +282,12 @@ static int ChibiOS_update_threads(struct rtos *rtos)
 		if((retval != ERROR_OK) || (older==0) || (older!=previous)) {
 			LOG_ERROR("ChibiOS registry integrity check failed, "
 						"double linked list violation");
-		  return -5;
+			return -5;
 		}
 		
 		// Check for full iteration of the linked list.
 		if(current==rlist)
-		  break;
+			break;
 		
 		
 		tasks_found++;
@@ -288,7 +297,8 @@ static int ChibiOS_update_threads(struct rtos *rtos)
 	
 	LOG_OUTPUT("Finished checking the thread registry.\r\n");
 	
-	
+	//tasks_found--;
+
 	/* create space for new thread details */
 	rtos->thread_details = (struct thread_detail *) malloc(
 			sizeof(struct thread_detail) * tasks_found);
@@ -296,65 +306,85 @@ static int ChibiOS_update_threads(struct rtos *rtos)
 	
 	/* Loop through linked list. */
 	i = 0;
-	while(true) {
-	  uint32_t name_ptr = 0;
-	  #define CHIBIOS_THREAD_NAME_STR_SIZE (64)
-	  char tmp_str[CHIBIOS_THREAD_NAME_STR_SIZE];
+	while (true) {
+		uint32_t name_ptr = 0;
 		
-	  LOG_OUTPUT("Exporting ChibiOS task %i\r\n", i);
-	  
-	  retval = target_read_buffer(rtos->target,
-		current + param->ch_root->cf_off_newer,
-		param->ch_root->ch_ptrsize,
-		(uint8_t *)&current);
-	  if (retval != ERROR_OK) {
-		  LOG_ERROR("Could not read next ChibiOS thread");
-		return -6;
-	  }
-	  
-	  // Check for full iteration of the linked list.
-	  if(current==rlist)
-		break;
-	  
-	  /* Save the thread pointer */
-	  rtos->thread_details[i].threadid = current;
-	  
-	  /* read the name pointer */
-	  retval = target_read_buffer(rtos->target,
-			  current + param->ch_root->cf_off_name,
-			  param->ch_root->ch_ptrsize,
-			  (uint8_t *)&name_ptr);
-	  if (retval != ERROR_OK) {
-		  LOG_ERROR("Could not read ChibiOS thread name pointer from target");
-		  return retval;
-	  }
-	  
-	  /* Read the thread name */
-	  retval =
-		  target_read_buffer(rtos->target,
-			  name_ptr,
-			  CHIBIOS_THREAD_NAME_STR_SIZE,
-			  (uint8_t *)&tmp_str);
-	  if (retval != ERROR_OK) {
-		  LOG_ERROR("Error reading thread name from ChibiOS target");
-		  return retval;
-	  }
-	  tmp_str[CHIBIOS_THREAD_NAME_STR_SIZE-1] = '\x00';
-	
-	  if (tmp_str[0] == '\x00')
+		#define CHIBIOS_THREAD_NAME_STR_SIZE (64)
+		char tmp_str[CHIBIOS_THREAD_NAME_STR_SIZE];
+
+		retval = target_read_buffer(rtos->target,
+									current + param->ch_root->cf_off_newer,
+									param->ch_root->ch_ptrsize,
+									(uint8_t *)&current);
+		if (retval != ERROR_OK) {
+			LOG_ERROR("Could not read next ChibiOS thread");
+			return -6;
+		}
+
+		// Check for full iteration of the linked list.
+		if (current == rlist)
+			break;
+
+		LOG_OUTPUT("Exporting ChibiOS task %i\r\n", i);
+
+		/* Save the thread pointer */
+		rtos->thread_details[i].threadid = current;
+
+		/* read the name pointer */
+		retval = target_read_buffer(rtos->target,
+									current + param->ch_root->cf_off_name,
+									param->ch_root->ch_ptrsize,
+									(uint8_t *)&name_ptr);
+		if (retval != ERROR_OK) {
+			LOG_ERROR("Could not read ChibiOS thread name pointer from target");
+			return retval;
+		}
+
+		/* Read the thread name */
+		retval = target_read_buffer(rtos->target, name_ptr,
+									CHIBIOS_THREAD_NAME_STR_SIZE,
+									(uint8_t *)&tmp_str);
+		if (retval != ERROR_OK) {
+			LOG_ERROR("Error reading thread name from ChibiOS target");
+			return retval;
+		}
+		tmp_str[CHIBIOS_THREAD_NAME_STR_SIZE - 1] = '\x00';
+
+		if (tmp_str[0] == '\x00')
 			strcpy(tmp_str, "No Name");
-	  
-	  rtos->thread_details[i].thread_name_str = (char *)malloc(strlen(tmp_str)+1);
-	  strcpy(rtos->thread_details[i].thread_name_str, tmp_str);
-	  
-	  /* TODO: State info */
-	  rtos->thread_details[i].extra_info_str = NULL;
-	  
-	  
-	  rtos->thread_details[i].exists = true;
-	  rtos->thread_details[i].display_str = NULL;
-	  
-	  i++;
+
+		rtos->thread_details[i].thread_name_str = (char *)malloc(
+				strlen(tmp_str) + 1);
+		strcpy(rtos->thread_details[i].thread_name_str, tmp_str);
+
+		/* State info */
+		uint8_t threadState;
+		const char *state_desc;
+
+		retval = target_read_buffer(rtos->target,
+									current + param->ch_root->cf_off_state,
+									1, &threadState);
+		if (retval != ERROR_OK) {
+			LOG_ERROR("Error reading thread state from ChibiOS target");
+			return retval;
+		}
+
+
+		if (threadState < CHIBIOS_NUM_STATES)
+			state_desc = ChibiOS_thread_states[threadState];
+		else
+			state_desc = "Unknown state";
+
+		LOG_OUTPUT("Thread in state %i (%s)\r\n", threadState, state_desc);
+
+		rtos->thread_details[i].extra_info_str = (char *)malloc(strlen(
+					state_desc)+1);
+		strcpy(rtos->thread_details[i].extra_info_str, state_desc);
+
+		rtos->thread_details[i].exists = true;
+		rtos->thread_details[i].display_str = NULL;
+
+		i++;
 	}
 	
 	
@@ -367,6 +397,9 @@ static int ChibiOS_update_threads(struct rtos *rtos)
 		return retval;
 	}
 	
+	LOG_INFO("Current thread is %i", (int) rtos->current_thread);
+
+	LOG_OUTPUT("-------ChibiOS_update_threads() SUCCESS!!\r\n");
 	
 	return 0;
 }

@@ -1,4 +1,8 @@
 /***************************************************************************
+ *   Copyright (C) 2012 by Matthias Blaicher                               *
+ *   Matthias Blaicher - matthias@blaicher.com                             *
+ *                                                                         *
+ *   Based on the excelent work by Evan Hunter                             *
  *   Copyright (C) 2011 by Broadcom Corporation                            *
  *   Evan Hunter - ehunter@broadcom.com                                    *
  *                                                                         *
@@ -39,8 +43,8 @@ static const struct stack_register_offset rtos_chibios_Cortex_M3_stack_offsets[]
 	{ 0x1c, 32 },		/* r11  */
 	{ -1,   32 },		/* r12  */
 	{ -2,   32 },		/* sp   */
-	{ 0x20, 32 },		/* lr   */
-	{ -1,   32 },		/* pc   */
+	{ -1,   32 },		/* lr   */
+	{ 0x20, 32 },		/* pc   */
 	{ -1,   96 },		/* FPA1 */
 	{ -1,   96 },		/* FPA2 */
 	{ -1,   96 },		/* FPA3 */
@@ -50,13 +54,13 @@ static const struct stack_register_offset rtos_chibios_Cortex_M3_stack_offsets[]
 	{ -1,   96 },		/* FPA7 */
 	{ -1,   96 },		/* FPA8 */
 	{ -1,   32 },		/* FPS  */
-	{ -1, 32 },		/* xPSR */
-}; 
+	{ -1,   32 },		/* xPSR */
+};
 
 const struct rtos_register_stacking rtos_chibios_Cortex_M3_stacking = {
-	0x40,					/* stack_registers_size */
+	0x24,					/* stack_registers_size */
 	-1,					/* stack_growth_direction */
 	26,					/* num_output_registers */
-	8,					/* stack_alignment */
+	0,					/* stack_alignment */
 	rtos_chibios_Cortex_M3_stack_offsets	/* register_offsets */
 };
