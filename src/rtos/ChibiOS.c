@@ -259,7 +259,7 @@ static int ChibiOS_update_threads(struct rtos *rtos)
 	previous = rlist;
 	
 	while(true) {
-		LOG_OUTPUT("Investigating ChibiOS task %i\r\n", tasks_found);
+		LOG_DEBUG("Investigating ChibiOS task %i\r\n", tasks_found);
 		
 		retval = target_read_buffer(rtos->target,
 			current + param->ch_root->cf_off_newer,
@@ -270,7 +270,7 @@ static int ChibiOS_update_threads(struct rtos *rtos)
 			return retval;
 		}
 		
-		// Current be NULL if the kernel is not initialized yet or if the
+		// Could be NULL if the kernel is not initialized yet or if the
 		// registry is corrupted.
 		if(current == 0) {
 			LOG_ERROR("ChibiOS registry integrity check failed, NULL pointer");
