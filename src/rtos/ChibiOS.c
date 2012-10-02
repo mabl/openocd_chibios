@@ -196,6 +196,8 @@ static int ChibiOS_update_threads(struct rtos *rtos)
 	const struct ChibiOS_params *param;
 	int tasks_found = 0;
 	
+	int rtos_valid = -1;
+
 	if (rtos->rtos_specific_params == NULL)
 		return -1;
 
@@ -234,6 +236,7 @@ static int ChibiOS_update_threads(struct rtos *rtos)
 		}
 		free(rtos->thread_details);
 		rtos->thread_details = NULL;
+		rtos->thread_count = 0;
 	}
 	
 	/* ChibiOS does not save the current thread count.
@@ -271,7 +274,9 @@ static int ChibiOS_update_threads(struct rtos *rtos)
 		// registry is corrupted.
 		if(current == 0) {
 			LOG_ERROR("ChibiOS registry integrity check failed, NULL pointer");
-			return -4;
+
+			rtos_valid = 0;
+			break;
 		}
 		
 		// Fetch previous thread in the list as a integrity check.
@@ -282,7 +287,8 @@ static int ChibiOS_update_threads(struct rtos *rtos)
 		if((retval != ERROR_OK) || (older==0) || (older!=previous)) {
 			LOG_ERROR("ChibiOS registry integrity check failed, "
 						"double linked list violation");
-			return -5;
+			rtos_valid = 0;
+			break;
 		}
 		
 		// Check for full iteration of the linked list.
@@ -297,7 +303,27 @@ static int ChibiOS_update_threads(struct rtos *rtos)
 	
 	LOG_OUTPUT("Finished checking the thread registry.\r\n");
 	
-	//tasks_found--;
+
+	if (!rtos_valid) {
+		/* No RTOS threads - there is always at least the current execution though */
+		LOG_INFO("Only showing current execution because of broken thread registry.");
+
+		const char tmp_thread_name_str[] = "Current Execution";
+		const char tmp_thread_extra_info_str[] = "No RTOS thread";
+
+		rtos->thread_details = (struct thread_detail *) malloc(sizeof(struct thread_detail));
+		rtos->thread_details->threadid = 1;
+		rtos->thread_details->exists = true;
+		rtos->thread_details->display_str = NULL;
+		rtos->thread_details->extra_info_str = (char *) malloc(sizeof(tmp_thread_extra_info_str));
+		strcpy(rtos->thread_details->extra_info_str, tmp_thread_extra_info_str);
+		rtos->thread_details->thread_name_str = (char *) malloc(sizeof(tmp_thread_name_str));
+		strcpy(rtos->thread_details->thread_name_str, tmp_thread_name_str);
+
+		rtos->current_thread = 1;
+		rtos->thread_count = 1;
+		return ERROR_OK;
+	}
 
 	/* create space for new thread details */
 	rtos->thread_details = (struct thread_detail *) malloc(
