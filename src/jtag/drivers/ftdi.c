@@ -175,7 +175,7 @@ static int ftdi_set_signal(const struct signal *s, char value)
 
 	output = data ? output | s->data_mask : output & ~s->data_mask;
 	if (s->oe_mask == s->data_mask)
-		direction = oe ? output | s->oe_mask : output & ~s->oe_mask;
+		direction = oe ? direction | s->oe_mask : direction & ~s->oe_mask;
 	else
 		output = oe ? output | s->oe_mask : output & ~s->oe_mask;
 
@@ -247,6 +247,11 @@ static int ftdi_speed_div(int speed, int *khz)
 
 static int ftdi_khz(int khz, int *jtag_speed)
 {
+	if (khz == 0 && !mpsse_is_high_speed(mpsse_ctx)) {
+		LOG_DEBUG("RCLK not supported");
+		return ERROR_FAIL;
+	}
+
 	*jtag_speed = khz * 1000;
 	return ERROR_OK;
 }
@@ -389,6 +394,18 @@ static int ftdi_execute_scan(struct jtag_command *cmd)
 	DEBUG_JTAG_IO("%s type:%d", cmd->cmd.scan->ir_scan ? "IRSCAN" : "DRSCAN",
 		jtag_scan_type(cmd->cmd.scan));
 
+	/* Make sure there are no trailing fields with num_bits == 0, or the logic below will fail. */
+	while (cmd->cmd.scan->num_fields > 0
+			&& cmd->cmd.scan->fields[cmd->cmd.scan->num_fields - 1].num_bits == 0) {
+		cmd->cmd.scan->num_fields--;
+		LOG_DEBUG("discarding trailing empty field");
+	}
+
+	if (cmd->cmd.scan->num_fields == 0) {
+		LOG_DEBUG("empty scan, doing nothing");
+		return retval;
+	}
+
 	if (cmd->cmd.scan->ir_scan) {
 		if (tap_get_state() != TAP_IRSHIFT)
 			move_to_state(TAP_IRSHIFT);
@@ -413,7 +430,7 @@ static int ftdi_execute_scan(struct jtag_command *cmd)
 
 		if (i == cmd->cmd.scan->num_fields - 1 && tap_get_state() != tap_get_end_state()) {
 			/* Last field, and we're leaving IRSHIFT/DRSHIFT. Clock last bit during tap
-			 *movement */
+			 * movement. This last field can't have length zero, it was checked above. */
 			mpsse_clock_data(mpsse_ctx,
 				field->out_value,
 				0,
@@ -626,7 +643,7 @@ static int ftdi_initialize(void)
 	if (retval == ERROR_OK)
 		retval = mpsse_set_data_bits_high_byte(mpsse_ctx, output >> 8, direction >> 8);
 	if (retval != ERROR_OK)	{
-		LOG_ERROR("couldn't initialize FTDI with 'JTAGkey' layout");
+		LOG_ERROR("couldn't initialize FTDI with configured layout");
 		return ERROR_JTAG_INIT_FAILED;
 	}
 

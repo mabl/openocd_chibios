@@ -174,7 +174,7 @@ The OpenOCD web site provides the latest public news from the community:
 
 The user's guide you are now reading may not be the latest one
 available.  A version for more recent code may be available.
-Its HTML form is published irregularly at:
+Its HTML form is published regularly at:
 
 @uref{http://openocd.sourceforge.net/doc/html/index.html}
 
@@ -192,6 +192,17 @@ instead of this forum.
 
 @uref{http://forum.sparkfun.com/viewforum.php?f=18}
 
+@section OpenOCD User's Mailing List
+
+The OpenOCD User Mailing List provides the primary means of
+communication between users:
+
+@uref{https://lists.sourceforge.net/mailman/listinfo/openocd-user}
+
+@section OpenOCD IRC
+
+Support can also be found on irc:
+@uref{irc://irc.freenode.net/openocd}
 
 @node Developers
 @chapter OpenOCD Developer Resources
@@ -4639,6 +4650,30 @@ flash bank $_FLASHNAME cfi 0x00000000 0x02000000 2 4 $_TARGETNAME
 @end example
 
 @c "cfi part_id" disabled
+@end deffn
+
+@deffn {Flash Driver} lpcspifi
+@cindex NXP SPI Flash Interface
+@cindex SPIFI
+@cindex lpcspifi
+NXP's LPC43xx and LPC18xx families include a proprietary SPI
+Flash Interface (SPIFI) peripheral that can drive and provide
+memory mapped access to external SPI flash devices.
+
+The lpcspifi driver initializes this interface and provides
+program and erase functionality for these serial flash devices.
+Use of this driver @b{requires} a working area of at least 1kB
+to be configured on the target device; more than this will
+significantly reduce flash programming times.
+
+The setup command only requires the @var{base} parameter. All
+other parameters are ignored, and the flash size and layout
+are configured by the driver.
+
+@example
+flash bank $_FLASHNAME lpcspifi 0x14000000 0 0 0 $_TARGETNAME
+@end example
+
 @end deffn
 
 @deffn {Flash Driver} stmsmi

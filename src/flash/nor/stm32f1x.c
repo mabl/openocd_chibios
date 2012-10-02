@@ -249,6 +249,14 @@ static int stm32x_erase_options(struct flash_bank *bank)
 
 	stm32x_info = bank->driver_priv;
 
+	/* stlink is currently does not support 16bit
+	 * read/writes. so we cannot write option bytes */
+	struct armv7m_common *armv7m = target_to_armv7m(target);
+	if (armv7m && armv7m->stlink) {
+		LOG_ERROR("Option bytes currently unsupported for stlink");
+		return ERROR_FAIL;
+	}
+
 	/* read current options */
 	stm32x_read_options(bank);
 
@@ -1134,6 +1142,10 @@ static int get_stm32x_info(struct flash_bank *bank, char *buf, int buf_size)
 				snprintf(buf, buf_size, "1.0");
 				break;
 
+			case 0x2000:
+				snprintf(buf, buf_size, "2.0");
+				break;
+
 			default:
 				snprintf(buf, buf_size, "unknown");
 				break;
@@ -1178,6 +1190,10 @@ static int get_stm32x_info(struct flash_bank *bank, char *buf, int buf_size)
 		switch (device_id >> 16) {
 			case 0x1000:
 				snprintf(buf, buf_size, "1.0");
+				break;
+
+			case 0x2000:
+				snprintf(buf, buf_size, "2.0");
 				break;
 
 			default:

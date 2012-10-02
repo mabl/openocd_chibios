@@ -1265,6 +1265,8 @@ int dap_lookup_cs_component(struct adiv5_dap *dap, int ap,
 			retval = mem_ap_read_atomic_u32(dap,
 					(component_base & 0xfffff000) | 0xfcc,
 					&devtype);
+			if (retval != ERROR_OK)
+				return retval;
 			if ((devtype & 0xff) == type) {
 				*addr = component_base;
 				retval = ERROR_OK;
@@ -1584,6 +1586,10 @@ static int dap_info_command(struct command_context *cmd_ctx,
 					type = "Cortex-M3 FBP";
 					full = "(Flash Patch and Breakpoint)";
 					break;
+				case 0x00c:
+					type = "Cortex-M4 SCS";
+					full = "(System Control Space)";
+					break;
 				case 0x00d:
 					type = "CoreSight ETM11";
 					full = "(Embedded Trace)";
@@ -1633,9 +1639,17 @@ static int dap_info_command(struct command_context *cmd_ctx,
 					type = "Cortex-M3 ETM";
 					full = "(Embedded Trace)";
 					break;
+				case 0x925:
+					type = "Cortex-M4 ETM";
+					full = "(Embedded Trace)";
+					break;
 				case 0x930:
 					type = "Cortex-R4 ETM";
 					full = "(Embedded Trace)";
+					break;
+				case 0x9a1:
+					type = "Cortex-M4 TPUI";
+					full = "(Trace Port Interface Unit)";
 					break;
 				case 0xc08:
 					type = "Cortex-A8 Debug";
