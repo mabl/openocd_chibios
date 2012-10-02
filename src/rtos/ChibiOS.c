@@ -127,8 +127,6 @@ static char *ChibiOS_symbol_list[] = {
 
 
 static int ChibiOS_update_memory_signature(struct rtos *rtos) {
-	LOG_OUTPUT("-------ChibiOS_update_memory_signature()\r\n");
-
 	int retval;
 	struct ChibiOS_params *param;
 
@@ -189,8 +187,6 @@ errfree:
 
 static int ChibiOS_update_threads(struct rtos *rtos)
 {
-	LOG_OUTPUT("-------ChibiOS_update_threads()\r\n");
-	
 	int i=0;
 	int retval;
 	const struct ChibiOS_params *param;
@@ -301,12 +297,12 @@ static int ChibiOS_update_threads(struct rtos *rtos)
 		previous = current;
 	}
 	
-	LOG_OUTPUT("Finished checking the thread registry.\r\n");
+	LOG_DEBUG("Finished checking the ChibiOS thread registry.\r\n");
 	
 
 	if (!rtos_valid) {
 		/* No RTOS threads - there is always at least the current execution though */
-		LOG_INFO("Only showing current execution because of broken thread registry.");
+		LOG_INFO("Only showing current execution because of broken ChibiOS thread registry.");
 
 		const char tmp_thread_name_str[] = "Current Execution";
 		const char tmp_thread_extra_info_str[] = "No RTOS thread";
@@ -423,9 +419,7 @@ static int ChibiOS_update_threads(struct rtos *rtos)
 		return retval;
 	}
 	
-	LOG_INFO("Current thread is %i", (int) rtos->current_thread);
-
-	LOG_OUTPUT("-------ChibiOS_update_threads() SUCCESS!!\r\n");
+	LOG_DEBUG("Current thread is %i", (int) rtos->current_thread);
 	
 	return 0;
 }
@@ -479,7 +473,6 @@ static int ChibiOS_get_symbol_list_to_lookup(symbol_table_elem_t *symbol_list[])
 
 static int ChibiOS_detect_rtos(struct target *target)
 {
-	LOG_OUTPUT("-------ChibiOS_detect_rtos()\r\n");
 	if ((target->rtos->symbols != NULL) &&
 			(target->rtos->symbols[ChibiOS_VAL_rlist].address != 0)) {
 		/* looks like ChibiOS */
@@ -490,7 +483,6 @@ static int ChibiOS_detect_rtos(struct target *target)
 
 static int ChibiOS_create(struct target *target)
 {
-	LOG_OUTPUT("-------ChibiOS_create()\r\n");
 	int i = 0;
 	while ((i < CHIBIOS_NUM_PARAMS) &&
 			(0 != strcmp(ChibiOS_params_list[i].target_name, target->type->name))) {

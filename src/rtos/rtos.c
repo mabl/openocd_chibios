@@ -140,7 +140,6 @@ int gdb_thread_packet(struct connection *connection, char *packet, int packet_si
  * symbol have been asked*/
 int rtos_qsymbol(struct connection *connection, char *packet, int packet_size)
 {
-	LOG_OUTPUT("--------------rtos_qsymbol()\r\n");
 	struct target *target = get_target_from_connection(connection);
 	if (target->rtos != NULL) {
 		int next_symbol_num = -1;
