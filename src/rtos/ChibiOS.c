@@ -125,7 +125,6 @@ static char *ChibiOS_symbol_list[] = {
 
 #define CHIBIOS_NUM_SYMBOLS (sizeof(ChibiOS_symbol_list)/sizeof(char *))
 
-
 static int ChibiOS_update_memory_signature(struct rtos *rtos) {
 	int retval;
 	struct ChibiOS_params *param;
@@ -183,6 +182,31 @@ errfree:
 	free(param->ch_debug);
 	param->ch_debug = 0;
 	return retval;
+}
+
+
+static int ChibiOS_update_stacking(struct rtos *rtos){
+	/* Sometimes the stacking can not be determined only by looking at the
+	 * target name but only a runtime.
+	 *
+	 * For example, this is the case for cortex-m4 targets and ChibiOS which
+	 *  only stack the FPU registers if it is enabled during ChibiOS build.
+	 *
+	 * Terminating which stacking is used is target depending.
+	 *
+	 * Assumptions:
+	 *  - Once ChibiOS is actually initialized, the stacking is fixed.
+	 *  - During startup code, the FPU might not be initialized and the
+	 *    detection might fail.
+	 *  - Since no threads are running during startup, the problem is solved
+	 *    by delaying stacking detection until there are more threads
+	 *    available than the current execution. In which case
+	 *    ChibiOS_get_thread_reg_list is called.
+	 */
+
+	/* TODO: Actual detection */
+
+	return ERROR_OK;
 }
 
 static int ChibiOS_update_threads(struct rtos *rtos)
@@ -440,11 +464,16 @@ static int ChibiOS_get_thread_reg_list(struct rtos *rtos, int64_t thread_id, cha
 	if (rtos->rtos_specific_params == NULL)
 		return -1;
 
-
 	param = (const struct ChibiOS_params *) rtos->rtos_specific_params;
 
 	if (param->ch_debug == NULL)
 		return -1;
+
+	/* Interfere stacking if it can only be determined from runtime information */
+	if ((param->stacking_info == 0) && (ChibiOS_update_stacking(rtos) != ERROR_OK)) {
+		LOG_ERROR("Failed to determine exact stacking for the target type %s", rtos->target->type->name);
+		return -1;
+	}
 
 	/* Read the stack pointer */
 	retval = target_read_buffer(rtos->target,
@@ -484,7 +513,6 @@ static int ChibiOS_detect_rtos(struct target *target)
 		/* looks like ChibiOS with memory map available.*/
 		return 1;
 	}
-
 
 	return 0;
 }
