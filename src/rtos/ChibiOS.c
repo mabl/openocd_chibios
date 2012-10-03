@@ -475,9 +475,17 @@ static int ChibiOS_detect_rtos(struct target *target)
 {
 	if ((target->rtos->symbols != NULL) &&
 			(target->rtos->symbols[ChibiOS_VAL_rlist].address != 0)) {
-		/* looks like ChibiOS */
+
+		if (target->rtos->symbols[ChibiOS_VAL_ch_root].address == 0) {
+			LOG_INFO("It looks like the target might be running ChibiOS without ch_root.");
+			return 0;
+		}
+
+		/* looks like ChibiOS with memory map available.*/
 		return 1;
 	}
+
+
 	return 0;
 }
 
