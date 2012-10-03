@@ -42,9 +42,9 @@
  * @details Definition copied from os/kernel/include/chregistry.h of ChibiOS/RT.
  */
 struct ChibiOS_chdebug {
-	char      ch_identifier[4];       /**< @brief Always set to "CHRT".       */
+	char      ch_identifier[4];       /**< @brief Always set to "main".       */
+	uint8_t   ch_zero;                /**< @brief Must be zero.               */
 	uint8_t   ch_size;                /**< @brief Size of this structure.     */
-	uint8_t   ch_reserved5;           /**< @brief Reserved field.             */
 	uint16_t  ch_version;             /**< @brief Encoded ChibiOS/RT version. */
 	uint8_t   ch_ptrsize;             /**< @brief Size of a pointer.          */
 	uint8_t   ch_timesize;            /**< @brief Size of a @p systime_t.     */
@@ -148,7 +148,7 @@ static int ChibiOS_update_memory_signature(struct rtos *rtos) {
 		goto errfree;
 	}
 
-	if (strncmp(param->ch_debug->ch_identifier, "CHRT", 4) != 0) {
+	if (strncmp(param->ch_debug->ch_identifier, "main", 4) != 0) {
 		LOG_ERROR("Memory signature identifier does not contain CHRT");
 		retval = -1;
 		goto errfree;
