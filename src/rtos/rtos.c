@@ -463,18 +463,18 @@ int rtos_generic_stack_read(struct target *target,
 int rtos_try_next(struct target *target)
 {
 	struct rtos *os = target->rtos;
-	struct rtos_type *type = rtos_types[0];
+	struct rtos_type **type = rtos_types;
 
 	if (!os)
 		return 0;
 
-	while (type && os->type != type)
+	while (type && os->type != *type)
 		type++;
 
 	if (!type || !++type)
 		return 0;
 
-	os->type = type;
+	os->type = *type;
 	if (os->symbols) {
 		free(os->symbols);
 		os->symbols = NULL;
