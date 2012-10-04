@@ -54,78 +54,87 @@ int rtos_smp_init(struct target *target)
 	return ERROR_TARGET_INIT_FAILED;
 }
 
-int rtos_create(Jim_GetOptInfo *goi, struct target *target)
+static int os_alloc(struct target *target, struct rtos_type *ostype)
 {
-	int x;
-	char *cp;
-	if (!goi->isconfigure) {
-		if (goi->argc != 0) {
-			if (goi->argc != 0) {
-				Jim_WrongNumArgs(goi->interp,
-					goi->argc, goi->argv,
-					"NO PARAMS");
-				return JIM_ERR;
-			}
+	struct rtos *os = target->rtos = calloc(1, sizeof(struct rtos));
 
-			Jim_SetResultString(goi->interp,
-				target_type_name(target), -1);
-		}
-	}
+	if (!os)
+		return JIM_ERR;
 
-	if (target->rtos)
-		free((void *)(target->rtos));
-						/*			e = Jim_GetOpt_String(goi,
-						 * &cp, NULL); */
-/*			target->rtos = strdup(cp); */
+	os->type = ostype;
+	os->current_threadid = -1;
+	os->current_thread = 0;
+	os->symbols = NULL;
+	os->target = target;
 
-	Jim_GetOpt_String(goi, &cp, NULL);
-	/* now does target type exist */
-
-	if (0 == strcmp(cp, "auto")) {
-		/* auto detection of RTOS */
-		target->rtos_auto_detect = true;
-		x = 0;
-	} else {
-
-		for (x = 0; rtos_types[x]; x++) {
-			if (0 == strcmp(cp, rtos_types[x]->name)) {
-				/* found */
-				break;
-			}
-		}
-		if (rtos_types[x] == NULL) {
-			Jim_SetResultFormatted(goi->interp, "Unknown rtos type %s, try one of ",
-				cp);
-			for (x = 0; rtos_types[x]; x++) {
-				if (rtos_types[x + 1]) {
-					Jim_AppendStrings(goi->interp,
-						Jim_GetResult(goi->interp),
-						rtos_types[x]->name,
-						", ", NULL);
-				} else {
-					Jim_AppendStrings(goi->interp,
-						Jim_GetResult(goi->interp),
-						" or ",
-						rtos_types[x]->name, NULL);
-				}
-			}
-			return JIM_ERR;
-		}
-	}
-	/* Create it */
-	target->rtos = calloc(1, sizeof(struct rtos));
-	target->rtos->type = rtos_types[x];
-	target->rtos->current_threadid = -1;
-	target->rtos->current_thread = 0;
-	target->rtos->symbols = NULL;
-	target->rtos->target = target;
-	/* put default thread handler in linux usecase it is overloaded*/
-	target->rtos->gdb_thread_packet = rtos_thread_packet;
-
-	if (0 != strcmp(cp, "auto"))
-		target->rtos->type->create(target);
+	/* RTOS drivers can override the packet handler in _create(). */
+	os->gdb_thread_packet = rtos_thread_packet;
 
 	return JIM_OK;
+}
+
+static void os_free(struct target *target)
+{
+	if (!target->rtos)
+		return;
+
+	if (target->rtos->symbols)
+		free(target->rtos->symbols);
+
+	free(target->rtos);
+	target->rtos = NULL;
+}
+
+static int os_alloc_create(struct target *target, struct rtos_type *ostype)
+{
+	int ret = os_alloc(target, ostype);
+
+	if (JIM_OK == ret) {
+		ret = target->rtos->type->create(target);
+		if (ret != JIM_OK)
+			os_free(target);
+	}
+
+	return ret;
+}
+
+int rtos_create(Jim_GetOptInfo *goi, struct target *target)
+{
+	char *cp;
+	struct Jim_Obj *res;
+	struct rtos_type *type;
+
+	if (!goi->isconfigure && goi->argc != 0) {
+		Jim_WrongNumArgs(goi->interp, goi->argc, goi->argv, "NO PARAMS");
+		return JIM_ERR;
+	}
+
+	os_free(target);
+
+	Jim_GetOpt_String(goi, &cp, NULL);
+
+	if (0 == strcmp(cp, "auto")) {
+		/* Auto detect tries to look up all symbols for each RTOS,
+		 * and runs the RTOS driver's _detect() function when GDB
+		 * finds all symbols for any RTOS. See rtos_qsymbol(). */
+		target->rtos_auto_detect = true;
+
+		/* rtos_qsymbol() will iterate over all RTOSes. Allocate
+		 * target->rtos here, and set it to the first RTOS type. */
+		return os_alloc(target, rtos_types[0]);
+	}
+
+	for (type = rtos_types[0]; type; type++)
+		if (0 == strcmp(cp, type->name))
+			return os_alloc_create(target, type);
+
+	Jim_SetResultFormatted(goi->interp, "Unknown RTOS type %s, try one of: ", cp);
+	res = Jim_GetResult(goi->interp);
+	for (type = rtos_types[0]; type; type++)
+		Jim_AppendStrings(goi->interp, res, type->name, ", ", NULL);
+	Jim_AppendStrings(goi->interp, res, " or auto", NULL);
+
+	return JIM_ERR;
 }
 
 int gdb_thread_packet(struct connection *connection, char *packet, int packet_size)
