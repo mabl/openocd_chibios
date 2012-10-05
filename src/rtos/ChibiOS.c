@@ -65,13 +65,13 @@ struct ChibiOS_chdebug {
 };
 
 #define GET_CH_KERNEL_MAJOR(codedVersion) ((codedVersion >> 11) & 0x1f)
-#define GET_CH_KERNEL_MINOR(codedVersion) ((codedVersion >> 6 ) & 0x1f)
-#define GET_CH_KERNEL_PATCH(codedVersion) ((codedVersion >> 0 ) & 0x3f)
+#define GET_CH_KERNEL_MINOR(codedVersion) ((codedVersion >> 6) & 0x1f)
+#define GET_CH_KERNEL_PATCH(codedVersion) ((codedVersion >> 0) & 0x3f)
 
 /**
  * @brief ChibiOS thread states.
  */
-const char* ChibiOS_thread_states[] = {
+const char *ChibiOS_thread_states[] = {
 	"READY", "CURRENT", "SUSPENDED", "WTSEM", "WTMTX", "WTCOND", "SLEEPING",
 	"WTEXIT", "WTOREVT", "WTANDEVT", "SNDMSGQ", "SNDMSG", "WTMSG", "WTQUEUE",
 	"FINAL"
@@ -132,7 +132,8 @@ static char *ChibiOS_symbol_list[] = {
 
 #define CHIBIOS_NUM_SYMBOLS (sizeof(ChibiOS_symbol_list)/sizeof(char *))
 
-static int ChibiOS_update_memory_signature(struct rtos *rtos) {
+static int ChibiOS_update_memory_signature(struct rtos *rtos)
+{
 	int retval;
 	struct ChibiOS_params *param;
 
@@ -174,7 +175,7 @@ static int ChibiOS_update_memory_signature(struct rtos *rtos) {
 	}
 
 	/* Convert endianness of version string */
-	const uint8_t* versionTarget = (const uint8_t*)
+	const uint8_t *versionTarget = (const uint8_t*)
 										&param->ch_debug->ch_version;
 	param->ch_debug->ch_version = rtos->target->endianness == TARGET_LITTLE_ENDIAN ?
 			le_to_h_u32(versionTarget) : be_to_h_u32(versionTarget);
@@ -194,7 +195,8 @@ errfree:
 }
 
 
-static int ChibiOS_update_stacking(struct rtos *rtos){
+static int ChibiOS_update_stacking(struct rtos *rtos)
+{
 	/* Sometimes the stacking can not be determined only by looking at the
 	 * target name but only a runtime.
 	 *
@@ -220,11 +222,10 @@ static int ChibiOS_update_stacking(struct rtos *rtos){
 
 static int ChibiOS_update_threads(struct rtos *rtos)
 {
-	int i=0;
+	int i = 0;
 	int retval;
 	const struct ChibiOS_params *param;
 	int tasks_found = 0;
-	
 	int rtos_valid = -1;
 
 	if (rtos->rtos_specific_params == NULL)
@@ -236,7 +237,6 @@ static int ChibiOS_update_threads(struct rtos *rtos)
 	}
 
 	param = (const struct ChibiOS_params *) rtos->rtos_specific_params;
-	
 	/* Update the memory signature saved in the target memory */
 	if (!param->ch_debug) {
 		retval = ChibiOS_update_memory_signature(rtos);
@@ -267,7 +267,6 @@ static int ChibiOS_update_threads(struct rtos *rtos)
 		rtos->thread_details = NULL;
 		rtos->thread_count = 0;
 	}
-	
 	/* ChibiOS does not save the current thread count. We have to first
 	 * parse the double linked thread list to check for errors and the number of
 	 * threads. */
@@ -284,13 +283,10 @@ static int ChibiOS_update_threads(struct rtos *rtos)
 		LOG_ERROR("Could not read ChibiOS ReadyList from target");
 		return retval;
 	}
-	
 	current = rlist;
 	previous = rlist;
-	
-	while(true) {
+	while (true) {
 		LOG_DEBUG("Investigating ChibiOS task %i\r\n", tasks_found);
-		
 		retval = target_read_buffer(rtos->target,
 			current + param->ch_debug->cf_off_newer,
 			param->ch_debug->ch_ptrsize,
@@ -299,10 +295,9 @@ static int ChibiOS_update_threads(struct rtos *rtos)
 			LOG_ERROR("Could not read next ChibiOS thread");
 			return retval;
 		}
-		
 		/* Could be NULL if the kernel is not initialized yet or if the
 		 * registry is corrupted. */
-		if(current == 0) {
+		if (current == 0) {
 			LOG_ERROR("ChibiOS registry integrity check failed, NULL pointer");
 
 			rtos_valid = 0;
@@ -314,26 +309,19 @@ static int ChibiOS_update_threads(struct rtos *rtos)
 		  current + param->ch_debug->cf_off_older,
 		  param->ch_debug->ch_ptrsize,
 		  (uint8_t *)&older);
-		if((retval != ERROR_OK) || (older==0) || (older!=previous)) {
+		if ((retval != ERROR_OK) || (older == 0) || (older != previous)) {
 			LOG_ERROR("ChibiOS registry integrity check failed, "
 						"double linked list violation");
 			rtos_valid = 0;
 			break;
 		}
-		
 		/* Check for full iteration of the linked list. */
-		if(current==rlist)
+		if (current == rlist)
 			break;
-		
-		
 		tasks_found++;
-		
 		previous = current;
 	}
-	
 	LOG_DEBUG("Finished checking the ChibiOS thread registry.\r\n");
-	
-
 	if (!rtos_valid) {
 		/* No RTOS, there is always at least the current execution, though */
 		LOG_INFO("Only showing current execution because of a broken "
@@ -365,12 +353,10 @@ static int ChibiOS_update_threads(struct rtos *rtos)
 	rtos->thread_details = (struct thread_detail *) malloc(
 			sizeof(struct thread_detail) * tasks_found);
 	rtos->thread_count = tasks_found;
-	
 	/* Loop through linked list. */
 	i = 0;
 	while (true) {
 		uint32_t name_ptr = 0;
-		
 		#define CHIBIOS_THREAD_NAME_STR_SIZE (64)
 		char tmp_str[CHIBIOS_THREAD_NAME_STR_SIZE];
 
@@ -383,7 +369,7 @@ static int ChibiOS_update_threads(struct rtos *rtos)
 			return -6;
 		}
 
-		// Check for full iteration of the linked list.
+		/* Check for full iteration of the linked list. */
 		if (current == rlist)
 			break;
 
@@ -448,7 +434,6 @@ static int ChibiOS_update_threads(struct rtos *rtos)
 
 		i++;
 	}
-	
 	/* NOTE: By design, cf_off_name equals readylist_current_offset */
 	retval = target_read_buffer(rtos->target,
 								rlist + param->ch_debug->cf_off_name,
@@ -458,9 +443,7 @@ static int ChibiOS_update_threads(struct rtos *rtos)
 		LOG_ERROR("Could not read current Thread from ChibiOS target");
 		return retval;
 	}
-	
 	LOG_DEBUG("Currently active thread is %i", (int) rtos->current_thread);
-	
 	return 0;
 }
 
