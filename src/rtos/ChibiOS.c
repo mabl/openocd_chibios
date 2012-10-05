@@ -544,7 +544,8 @@ static int ChibiOS_create(struct target *target)
 		i++;
 	}
 	if (i >= CHIBIOS_NUM_PARAMS) {
-		LOG_WARNING("Could not find target in ChibiOS compatibility list");
+		LOG_WARNING("Could not find target \"%s\" in ChibiOS compatibility "
+				"list", target->type->name);
 		return -1;
 	}
 
