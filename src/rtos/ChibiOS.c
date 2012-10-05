@@ -55,12 +55,12 @@ struct ChibiOS_chdebug {
 	uint8_t   cf_off_older;           /**< @brief Offset of @p p_older field. */
 	uint8_t   cf_off_name;            /**< @brief Offset of @p p_name field.  */
 	uint8_t   cf_off_stklimit;        /**< @brief Offset of @p p_stklimit
-												field.                      */
+												field.                        */
 	uint8_t   cf_off_state;           /**< @brief Offset of @p p_state field. */
 	uint8_t   cf_off_flags;           /**< @brief Offset of @p p_flags field. */
 	uint8_t   cf_off_refs;            /**< @brief Offset of @p p_refs field.  */
 	uint8_t   cf_off_preempt;         /**< @brief Offset of @p p_preempt
-												field.                      */
+												field.                        */
 	uint8_t   cf_off_time;            /**< @brief Offset of @p p_time field.  */
 };
 
@@ -114,12 +114,14 @@ struct rtos_type ChibiOS_rtos = {
 
 enum ChibiOS_symbol_values {
 	ChibiOS_VAL_rlist = 0,
-	ChibiOS_VAL_ch_debug = 1
+	ChibiOS_VAL_ch_debug = 1,
+	ChibiOS_VAL_chSysInit = 2
 };
 
 static char *ChibiOS_symbol_list[] = {
-	"rlist",
-	"ch_debug",
+	"rlist",		/* Thread ready list*/
+	"ch_debug",		/* Memory Signatur containing offsets of fields in rlist*/
+	"chSysInit",	/* Necessary part of API, used for ChibiOS detection*/
 	NULL
 };
 
@@ -155,25 +157,27 @@ static int ChibiOS_update_memory_signature(struct rtos *rtos) {
 	}
 
 	if (param->ch_debug->ch_size < sizeof(struct ChibiOS_chdebug)) {
-		LOG_ERROR("ChibiOS/RT memory signature claimed to be smaller than expected");
+		LOG_ERROR("ChibiOS/RT memory signature claimed to be smaller "
+				"than expected");
 		retval = -2;
 		goto errfree;
 	}
 
 	if (param->ch_debug->ch_size > sizeof(struct ChibiOS_chdebug)) {
-		LOG_WARNING("ChibiOS/RT memory signature claimed to be bigger than expected. "
-					"Assuming compatibility...");
+		LOG_WARNING("ChibiOS/RT memory signature claimed to be bigger than"
+					" expected. Assuming compatibility...");
 	}
 
 	/* Convert endianness of version string */
-	const uint8_t* versionTarget = (const uint8_t*) &param->ch_debug->ch_version;
+	const uint8_t* versionTarget = (const uint8_t*)
+										&param->ch_debug->ch_version;
 	param->ch_debug->ch_version = rtos->target->endianness == TARGET_LITTLE_ENDIAN ?
 			le_to_h_u32(versionTarget) : be_to_h_u32(versionTarget);
 
 	const uint16_t ch_version = param->ch_debug->ch_version;
-	LOG_INFO("Successfully loaded memory map of ChibiOS/RT target running version %i.%i.%i",
-		GET_CH_KERNEL_MAJOR(ch_version), GET_CH_KERNEL_MINOR(ch_version),
-		GET_CH_KERNEL_PATCH(ch_version));
+	LOG_INFO("Successfully loaded memory map of ChibiOS/RT target "
+			"running version %i.%i.%i", GET_CH_KERNEL_MAJOR(ch_version),
+			GET_CH_KERNEL_MINOR(ch_version), GET_CH_KERNEL_PATCH(ch_version));
 
 	return 0;
 
@@ -204,7 +208,7 @@ static int ChibiOS_update_stacking(struct rtos *rtos){
 	 *    ChibiOS_get_thread_reg_list is called.
 	 */
 
-	/* TODO: Actual detection */
+	/* TODO: Add actual detection */
 
 	return ERROR_OK;
 }
@@ -259,8 +263,9 @@ static int ChibiOS_update_threads(struct rtos *rtos)
 		rtos->thread_count = 0;
 	}
 	
-	/* ChibiOS does not save the current thread count.
-	 * Parsing the double linked list to check for errors and number of threads. */
+	/* ChibiOS does not save the current thread count. We have to first
+	 * parse the double linked thread list to check for errors and the number of
+	 * threads. */
 	uint32_t rlist;
 	uint32_t current;
 	uint32_t previous;
@@ -290,8 +295,8 @@ static int ChibiOS_update_threads(struct rtos *rtos)
 			return retval;
 		}
 		
-		// Could be NULL if the kernel is not initialized yet or if the
-		// registry is corrupted.
+		/* Could be NULL if the kernel is not initialized yet or if the
+		 * registry is corrupted. */
 		if(current == 0) {
 			LOG_ERROR("ChibiOS registry integrity check failed, NULL pointer");
 
@@ -299,7 +304,7 @@ static int ChibiOS_update_threads(struct rtos *rtos)
 			break;
 		}
 		
-		// Fetch previous thread in the list as a integrity check.
+		/* Fetch previous thread in the list as a integrity check. */
 		retval = target_read_buffer(rtos->target,
 		  current + param->ch_debug->cf_off_older,
 		  param->ch_debug->ch_ptrsize,
@@ -311,7 +316,7 @@ static int ChibiOS_update_threads(struct rtos *rtos)
 			break;
 		}
 		
-		// Check for full iteration of the linked list.
+		/* Check for full iteration of the linked list. */
 		if(current==rlist)
 			break;
 		
@@ -325,20 +330,26 @@ static int ChibiOS_update_threads(struct rtos *rtos)
 	
 
 	if (!rtos_valid) {
-		/* No RTOS threads - there is always at least the current execution though */
-		LOG_INFO("Only showing current execution because of broken ChibiOS thread registry.");
+		/* No RTOS, there is always at least the current execution, though */
+		LOG_INFO("Only showing current execution because of a broken "
+				"ChibiOS thread registry.");
 
-		const char tmp_thread_name_str[] = "Current Execution";
-		const char tmp_thread_extra_info_str[] = "No RTOS thread";
+		const char tmp_thread_name[] = "Current Execution";
+		const char tmp_thread_extra_info[] = "No RTOS thread";
 
-		rtos->thread_details = (struct thread_detail *) malloc(sizeof(struct thread_detail));
+		rtos->thread_details = (struct thread_detail *) malloc(
+				sizeof(struct thread_detail));
 		rtos->thread_details->threadid = 1;
 		rtos->thread_details->exists = true;
 		rtos->thread_details->display_str = NULL;
-		rtos->thread_details->extra_info_str = (char *) malloc(sizeof(tmp_thread_extra_info_str));
-		strcpy(rtos->thread_details->extra_info_str, tmp_thread_extra_info_str);
-		rtos->thread_details->thread_name_str = (char *) malloc(sizeof(tmp_thread_name_str));
-		strcpy(rtos->thread_details->thread_name_str, tmp_thread_name_str);
+
+		rtos->thread_details->extra_info_str = (char *) malloc(
+				sizeof(tmp_thread_extra_info));
+		strcpy(rtos->thread_details->extra_info_str, tmp_thread_extra_info);
+
+		rtos->thread_details->thread_name_str = (char *) malloc(
+				sizeof(tmp_thread_name));
+		strcpy(rtos->thread_details->thread_name_str, tmp_thread_name);
 
 		rtos->current_thread = 1;
 		rtos->thread_count = 1;
@@ -433,17 +444,17 @@ static int ChibiOS_update_threads(struct rtos *rtos)
 		i++;
 	}
 	
-	
+	/* NOTE: By design, cf_off_name equals readylist_current_offset */
 	retval = target_read_buffer(rtos->target,
-			  rlist + param->ch_debug->cf_off_name, //FIXME: should be readylist_current_offset
-			  param->ch_debug->ch_ptrsize,
-			  (uint8_t *)&rtos->current_thread);
+								rlist + param->ch_debug->cf_off_name,
+								param->ch_debug->ch_ptrsize,
+								(uint8_t *)&rtos->current_thread);
 	if (retval != ERROR_OK) {
 		LOG_ERROR("Could not read current Thread from ChibiOS target");
 		return retval;
 	}
 	
-	LOG_DEBUG("Current thread is %i", (int) rtos->current_thread);
+	LOG_DEBUG("Currently active thread is %i", (int) rtos->current_thread);
 	
 	return 0;
 }
@@ -469,8 +480,9 @@ static int ChibiOS_get_thread_reg_list(struct rtos *rtos, int64_t thread_id, cha
 	if (param->ch_debug == NULL)
 		return -1;
 
-	/* Interfere stacking if it can only be determined from runtime information */
-	if ((param->stacking_info == 0) && (ChibiOS_update_stacking(rtos) != ERROR_OK)) {
+	/* Update stacking if it can only be determined from runtime information */
+	if ((param->stacking_info == 0) &&
+		(ChibiOS_update_stacking(rtos) != ERROR_OK)) {
 		LOG_ERROR("Failed to determine exact stacking for the target type %s", rtos->target->type->name);
 		return -1;
 	}
@@ -503,10 +515,12 @@ static int ChibiOS_get_symbol_list_to_lookup(symbol_table_elem_t *symbol_list[])
 static int ChibiOS_detect_rtos(struct target *target)
 {
 	if ((target->rtos->symbols != NULL) &&
-			(target->rtos->symbols[ChibiOS_VAL_rlist].address != 0)) {
+			(target->rtos->symbols[ChibiOS_VAL_rlist].address != 0) &&
+			(target->rtos->symbols[ChibiOS_VAL_chSysInit].address != 0)) {
 
 		if (target->rtos->symbols[ChibiOS_VAL_ch_debug].address == 0) {
-			LOG_INFO("It looks like the target might be running ChibiOS without ch_debug.");
+			LOG_INFO("It looks like the target might be running ChibiOS without "
+					"ch_debug.");
 			return 0;
 		}
 
