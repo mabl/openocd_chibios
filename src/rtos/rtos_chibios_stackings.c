@@ -2,7 +2,6 @@
  *   Copyright (C) 2012 by Matthias Blaicher                               *
  *   Matthias Blaicher - matthias@blaicher.com                             *
  *                                                                         *
- *   Based on the excelent work by Evan Hunter                             *
  *   Copyright (C) 2011 by Broadcom Corporation                            *
  *   Evan Hunter - ehunter@broadcom.com                                    *
  *                                                                         *
