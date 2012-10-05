@@ -92,6 +92,11 @@ struct ChibiOS_params ChibiOS_params_list[] = {
 	"cortex_m3",							/* target_name */
 	0,
 	&rtos_chibios_Cortex_M3_stacking,		/* stacking_info */
+	},
+	{
+	"cortex_m4",							/* target_name */
+	0,
+	&rtos_chibios_Cortex_M3_stacking,		/* stacking_info */
 	}
 };
 #define CHIBIOS_NUM_PARAMS ((int)(sizeof(ChibiOS_params_list)/sizeof(struct ChibiOS_params)))
