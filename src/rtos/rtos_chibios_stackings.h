@@ -27,6 +27,6 @@
 
 #include "rtos.h"
 
-extern const struct rtos_register_stacking rtos_chibios_Cortex_M3_stacking;
+extern const struct rtos_register_stacking rtos_chibios_arm_v6_stacking;
 
 #endif	/* ifndef INCLUDED_RTOS_CHIBIOS_STACKINGS_H_ */

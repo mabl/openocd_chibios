@@ -28,7 +28,7 @@
 
 #include "rtos.h"
 
-static const struct stack_register_offset rtos_chibios_Cortex_M3_stack_offsets[] = {
+static const struct stack_register_offset rtos_chibios_arm_v6_stack_offsets[] = {
 	{ -1,   32 },		/* r0   */
 	{ -1,   32 },		/* r1   */
 	{ -1,   32 },		/* r2   */
@@ -57,10 +57,10 @@ static const struct stack_register_offset rtos_chibios_Cortex_M3_stack_offsets[]
 	{ -1,   32 },		/* xPSR */
 };
 
-const struct rtos_register_stacking rtos_chibios_Cortex_M3_stacking = {
+const struct rtos_register_stacking rtos_chibios_arm_v6_stacking = {
 	0x24,					/* stack_registers_size */
 	-1,					/* stack_growth_direction */
 	26,					/* num_output_registers */
 	0,					/* stack_alignment */
-	rtos_chibios_Cortex_M3_stack_offsets	/* register_offsets */
+	rtos_chibios_arm_v6_stack_offsets	/* register_offsets */
 };
