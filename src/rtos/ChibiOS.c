@@ -175,7 +175,7 @@ static int ChibiOS_update_memory_signature(struct rtos *rtos)
 	}
 
 	/* Convert endianness of version string */
-	const uint8_t *versionTarget = (const uint8_t*)
+	const uint8_t *versionTarget = (const uint8_t *)
 										&param->ch_debug->ch_version;
 	param->ch_debug->ch_version = rtos->target->endianness == TARGET_LITTLE_ENDIAN ?
 			le_to_h_u32(versionTarget) : be_to_h_u32(versionTarget);
@@ -303,7 +303,6 @@ static int ChibiOS_update_threads(struct rtos *rtos)
 			rtos_valid = 0;
 			break;
 		}
-		
 		/* Fetch previous thread in the list as a integrity check. */
 		retval = target_read_buffer(rtos->target,
 		  current + param->ch_debug->cf_off_older,
