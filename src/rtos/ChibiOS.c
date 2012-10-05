@@ -156,7 +156,7 @@ static int ChibiOS_update_memory_signature(struct rtos *rtos) {
 	}
 
 	if (strncmp(param->ch_debug->ch_identifier, "main", 4) != 0) {
-		LOG_ERROR("Memory signature identifier does not contain CHRT");
+		LOG_ERROR("Memory signature identifier does not contain magic bytes.");
 		retval = -1;
 		goto errfree;
 	}
