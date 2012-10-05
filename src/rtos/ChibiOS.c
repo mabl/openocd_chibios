@@ -94,7 +94,7 @@ struct ChibiOS_params ChibiOS_params_list[] = {
 	&rtos_chibios_Cortex_M3_stacking,		/* stacking_info */
 	},
 	{
-	"cortex_m4",							/* target_name */
+	"stm32_stlink",							/* target_name */
 	0,
 	&rtos_chibios_Cortex_M3_stacking,		/* stacking_info */
 	}
@@ -544,7 +544,8 @@ static int ChibiOS_create(struct target *target)
 		i++;
 	}
 	if (i >= CHIBIOS_NUM_PARAMS) {
-		LOG_WARNING("Could not find target in ChibiOS compatibility list");
+		LOG_WARNING("Could not find target \"%s\" in ChibiOS compatibility "
+				"list", target->type->name);
 		return -1;
 	}
 
