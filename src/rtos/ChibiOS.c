@@ -157,14 +157,14 @@ static int ChibiOS_update_memory_signature(struct rtos *rtos) {
 	}
 
 	if (param->ch_debug->ch_size < sizeof(struct ChibiOS_chdebug)) {
-		LOG_ERROR("ChibiOS/RT memory signature claimed to be smaller "
+		LOG_ERROR("ChibiOS/RT memory signature claims to be smaller "
 				"than expected");
 		retval = -2;
 		goto errfree;
 	}
 
 	if (param->ch_debug->ch_size > sizeof(struct ChibiOS_chdebug)) {
-		LOG_WARNING("ChibiOS/RT memory signature claimed to be bigger than"
+		LOG_WARNING("ChibiOS/RT memory signature claims to be bigger than"
 					" expected. Assuming compatibility...");
 	}
 
