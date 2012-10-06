@@ -78,6 +78,10 @@ const char *ChibiOS_thread_states[] = {
 
 #define CHIBIOS_NUM_STATES (sizeof(ChibiOS_thread_states)/sizeof(char *))
 
+/* Maximum ChibiOS thread name. There is no real limit set by ChibiOS but 64
+ * chars ought to be enough.
+ */
+#define CHIBIOS_THREAD_NAME_STR_SIZE (64)
 
 struct ChibiOS_params {
 	const char *target_name;
@@ -135,6 +139,7 @@ static int ChibiOS_update_memory_signature(struct rtos *rtos)
 {
 	int retval;
 	struct ChibiOS_params *param;
+	struct ChibiOS_chdebug *ch_debug;
 
 	param = (struct ChibiOS_params *) rtos->rtos_specific_params;
 
@@ -144,53 +149,56 @@ static int ChibiOS_update_memory_signature(struct rtos *rtos)
 		param->ch_debug = 0;
 	}
 
-	param->ch_debug = malloc(sizeof(struct ChibiOS_chdebug));
+	ch_debug = malloc(sizeof(struct ChibiOS_chdebug));
+	if (!ch_debug) {
+		LOG_ERROR("Could not allocate space for ChibiOS/RT memory signature");
+		return -1;
+	}
 
 	retval = target_read_buffer(rtos->target,
 								rtos->symbols[ChibiOS_VAL_ch_debug].address,
 								sizeof(struct ChibiOS_chdebug),
-								(uint8_t *) param->ch_debug);
+								(uint8_t *) ch_debug);
 	if (retval != ERROR_OK) {
-		LOG_ERROR("Could not read ChibiOS Memory signature from target");
+		LOG_ERROR("Could not read ChibiOS/RT memory signature from target");
 		goto errfree;
 	}
 
-	if (strncmp(param->ch_debug->ch_identifier, "main", 4) != 0) {
+	if (strncmp(ch_debug->ch_identifier, "main", 4) != 0) {
 		LOG_ERROR("Memory signature identifier does not contain magic bytes.");
-		retval = -1;
 		goto errfree;
 	}
 
-	if (param->ch_debug->ch_size < sizeof(struct ChibiOS_chdebug)) {
+	if (ch_debug->ch_size < sizeof(struct ChibiOS_chdebug)) {
 		LOG_ERROR("ChibiOS/RT memory signature claims to be smaller "
 				"than expected");
-		retval = -2;
 		goto errfree;
 	}
 
-	if (param->ch_debug->ch_size > sizeof(struct ChibiOS_chdebug)) {
+	if (ch_debug->ch_size > sizeof(struct ChibiOS_chdebug)) {
 		LOG_WARNING("ChibiOS/RT memory signature claims to be bigger than"
 					" expected. Assuming compatibility...");
 	}
 
-	/* Convert endianness of version string */
+	/* Convert endianness of version field */
 	const uint8_t *versionTarget = (const uint8_t *)
-										&param->ch_debug->ch_version;
-	param->ch_debug->ch_version = rtos->target->endianness == TARGET_LITTLE_ENDIAN ?
+										&ch_debug->ch_version;
+	ch_debug->ch_version = rtos->target->endianness == TARGET_LITTLE_ENDIAN ?
 			le_to_h_u32(versionTarget) : be_to_h_u32(versionTarget);
 
-	const uint16_t ch_version = param->ch_debug->ch_version;
+	const uint16_t ch_version = ch_debug->ch_version;
 	LOG_INFO("Successfully loaded memory map of ChibiOS/RT target "
 			"running version %i.%i.%i", GET_CH_KERNEL_MAJOR(ch_version),
 			GET_CH_KERNEL_MINOR(ch_version), GET_CH_KERNEL_PATCH(ch_version));
 
+	param->ch_debug = ch_debug;
 	return 0;
 
 errfree:
 	/* Error reading the ChibiOS memory structure */
-	free(param->ch_debug);
+	free(ch_debug);
 	param->ch_debug = 0;
-	return retval;
+	return -1;
 }
 
 
@@ -200,7 +208,7 @@ static int ChibiOS_update_stacking(struct rtos *rtos)
 	 * target name but only a runtime.
 	 *
 	 * For example, this is the case for cortex-m4 targets and ChibiOS which
-	 *  only stack the FPU registers if it is enabled during ChibiOS build.
+	 * only stack the FPU registers if it is enabled during ChibiOS build.
 	 *
 	 * Terminating which stacking is used is target depending.
 	 *
@@ -216,7 +224,7 @@ static int ChibiOS_update_stacking(struct rtos *rtos)
 
 	/* TODO: Add actual detection */
 
-	return ERROR_OK;
+	return -1;
 }
 
 static int ChibiOS_update_threads(struct rtos *rtos)
@@ -246,21 +254,16 @@ static int ChibiOS_update_threads(struct rtos *rtos)
 	}
 
 	/* wipe out previous thread details if any */
+	int j;
 	if (rtos->thread_details != NULL) {
-		int j;
 		for (j = 0; j < rtos->thread_count; j++) {
-			if (rtos->thread_details[j].display_str != NULL) {
-				free(rtos->thread_details[j].display_str);
-				rtos->thread_details[j].display_str = NULL;
-			}
-			if (rtos->thread_details[j].thread_name_str != NULL) {
-				free(rtos->thread_details[j].thread_name_str);
-				rtos->thread_details[j].thread_name_str = NULL;
-			}
-			if (rtos->thread_details[j].extra_info_str != NULL) {
-				free(rtos->thread_details[j].extra_info_str);
-				rtos->thread_details[j].extra_info_str = NULL;
-			}
+			struct thread_detail *current_thread = &rtos->thread_details[j];
+			if (current_thread->display_str != NULL)
+				free(current_thread->display_str);
+			if (current_thread->thread_name_str != NULL)
+				free(current_thread->thread_name_str);
+			if (current_thread->extra_info_str != NULL)
+				free(current_thread->extra_info_str);
 		}
 		free(rtos->thread_details);
 		rtos->thread_details = NULL;
@@ -284,7 +287,7 @@ static int ChibiOS_update_threads(struct rtos *rtos)
 	}
 	current = rlist;
 	previous = rlist;
-	while (true) {
+	while (1) {
 		LOG_DEBUG("Investigating ChibiOS task %i\r\n", tasks_found);
 		retval = target_read_buffer(rtos->target,
 			current + param->ch_debug->cf_off_newer,
@@ -350,12 +353,16 @@ static int ChibiOS_update_threads(struct rtos *rtos)
 	/* create space for new thread details */
 	rtos->thread_details = (struct thread_detail *) malloc(
 			sizeof(struct thread_detail) * tasks_found);
+	if (!rtos->thread_details) {
+		LOG_ERROR("Could not allocate space for thread details");
+		return -1;
+	}
+
 	rtos->thread_count = tasks_found;
 	/* Loop through linked list. */
-	i = 0;
-	while (true) {
+	struct thread_detail *curr_thrd_details = rtos->thread_details;
+	while (curr_thrd_details < rtos->thread_details + tasks_found) {
 		uint32_t name_ptr = 0;
-		#define CHIBIOS_THREAD_NAME_STR_SIZE (64)
 		char tmp_str[CHIBIOS_THREAD_NAME_STR_SIZE];
 
 		retval = target_read_buffer(rtos->target,
@@ -374,7 +381,7 @@ static int ChibiOS_update_threads(struct rtos *rtos)
 		LOG_DEBUG("Exporting ChibiOS task %i\r\n", i);
 
 		/* Save the thread pointer */
-		rtos->thread_details[i].threadid = current;
+		curr_thrd_details->threadid = current;
 
 		/* read the name pointer */
 		retval = target_read_buffer(rtos->target,
@@ -399,9 +406,9 @@ static int ChibiOS_update_threads(struct rtos *rtos)
 		if (tmp_str[0] == '\x00')
 			strcpy(tmp_str, "No Name");
 
-		rtos->thread_details[i].thread_name_str = (char *)malloc(
+		curr_thrd_details->thread_name_str = (char *)malloc(
 				strlen(tmp_str) + 1);
-		strcpy(rtos->thread_details[i].thread_name_str, tmp_str);
+		strcpy(curr_thrd_details->thread_name_str, tmp_str);
 
 		/* State info */
 		uint8_t threadState;
@@ -423,14 +430,14 @@ static int ChibiOS_update_threads(struct rtos *rtos)
 
 		LOG_DEBUG("Thread in state %i (%s)\r\n", threadState, state_desc);
 
-		rtos->thread_details[i].extra_info_str = (char *)malloc(strlen(
+		curr_thrd_details->extra_info_str = (char *)malloc(strlen(
 					state_desc)+1);
-		strcpy(rtos->thread_details[i].extra_info_str, state_desc);
+		strcpy(curr_thrd_details->extra_info_str, state_desc);
 
-		rtos->thread_details[i].exists = true;
-		rtos->thread_details[i].display_str = NULL;
+		curr_thrd_details->exists = true;
+		curr_thrd_details->display_str = NULL;
 
-		i++;
+		curr_thrd_details++;
 	}
 	/* NOTE: By design, cf_off_name equals readylist_current_offset */
 	retval = target_read_buffer(rtos->target,
@@ -452,13 +459,8 @@ static int ChibiOS_get_thread_reg_list(struct rtos *rtos, int64_t thread_id, cha
 	int64_t stack_ptr = 0;
 
 	*hex_reg_list = NULL;
-	if (rtos == NULL)
-		return -1;
-
-	if (thread_id == 0)
-		return -2;
-
-	if (rtos->rtos_specific_params == NULL)
+	if ((rtos == NULL) || (thread_id == 0) ||
+			(rtos->rtos_specific_params == NULL))
 		return -1;
 
 	param = (const struct ChibiOS_params *) rtos->rtos_specific_params;
@@ -505,12 +507,12 @@ static int ChibiOS_detect_rtos(struct target *target)
 			(target->rtos->symbols[ChibiOS_VAL_chSysInit].address != 0)) {
 
 		if (target->rtos->symbols[ChibiOS_VAL_ch_debug].address == 0) {
-			LOG_INFO("It looks like the target might be running ChibiOS without "
+			LOG_INFO("It looks like the target is running ChibiOS without "
 					"ch_debug.");
 			return 0;
 		}
 
-		/* looks like ChibiOS with memory map available.*/
+		/* looks like ChibiOS with memory map enabled.*/
 		return 1;
 	}
 
